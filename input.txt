@@ -1,0 +1,7 @@
+        Hole_doping:          0.0
+        L_x:                  10
+        L_y:                  1
+        t:                    1.0
+        U:                    4.0
+        tol:                  0.000001
+        hidden_density        1
