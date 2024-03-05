@@ -1,9 +1,9 @@
 # RBM 
-->Variational Monte Carlo with Stochastic Reconfiguration and RBM as NQS.
-RBM output is given as 
- W*x +b where w is the kernel and b is bias.
-RBM kernel matrix dimension is : 2*alpha*n_sites*,2*n_sites
-a single block of RBM is goes as : 
+->Variational Monte Carlo with Stochastic Reconfiguration and RBM as NQS.</br>
+RBM output is given as </br>
+ W*x +b where w is the kernel and b is bias.</br>
+RBM kernel matrix dimension is : 2<&times>alpha*n_sites*,2*n_sites</br>
+a single block of RBM is goes as : </br>
  [w1,w2,w3.... wn,  w(n+1),.....w(2n)] </br>
  [w2,w3,w4.....w1,  w(n+2),.....w(n+1)] </br>
  .
