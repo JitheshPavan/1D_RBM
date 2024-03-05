@@ -1,4 +1,5 @@
-#RBM Variational Monte Carlo with Stochastic Reconfiguration and RBM as NQS.
+# RBM 
+->Variational Monte Carlo with Stochastic Reconfiguration and RBM as NQS.
 RBM output is given as 
  W*x +b where w is the kernel and b is bias.
 RBM kernel matrix dimension is : 2*alpha*n_sites*,2*n_sites
