@@ -2,132 +2,180 @@
 #include "rbm.h"
 #include <algorithm> 
 #include <vector>
+#include <cassert>
 
-
-
-void Rbm::init_nn(const neuralnet_id& nn_id, const int& nsites,const int& start_pos_, const int& hidden_density)
+void Rbm::init_nn( const int& nsites, const int& hidden_density)
 {
+  hblock_=nsites;
+  num_sites_=nsites;
+  alpha=2*hidden_density;
+  num_hblocks_=2*hidden_density;//alpha
 
-  num_vunits_ = 2*nsites;
-  tot_sites_=nsites;
-  alpha  =  hidden_density;
-  num_hunits_  = alpha*num_vunits_;
-  tot_sites_= nsites;
-  kernel_.resize(num_vunits_,num_hunits_);
-  in_bias_.resize(num_vunits_);
-  hl_bias_.resize(num_hunits_);
-  start_pos = start_pos_;
-  num_params_ = in_bias_.size()+hl_bias_.size()+kernel_.size();//+num_sign_params_;  
-  theta_.resize(num_vunits_,hidden_density);
+  num_hunits_= hblock_*num_hblocks_; 
+  kernel_= Matrix::Zero(num_hunits_, 2*num_sites_);
+  h_bias_= Vector::Zero(num_hunits_);
+
+  num_kernel_params_= num_hblocks_*2*num_sites_;
+  num_hbias_params_ = num_hblocks_;
+  num_params_=num_kernel_params_+num_hbias_params_;
+
+  tanh_.resize(num_hunits_);
+  a_matrix.resize(num_sites_,num_sites_);
+  a_matrix1.resize(num_sites_,num_sites_);
+ /*
+  std::cout << "Testing the code\n"<<std::endl;
+  Vector pvec(num_params_);
+  for(int i=0;i< num_params_;++i){
+    if(i%3==0){
+      pvec[i]=0.001;
+    }
+    if(i%3==1){
+      pvec[i]=-0.05;
+    }
+    if(i%3==2){
+      pvec[i]=0.02;
+    }
+  }
+  ivector sigma(2*num_sites_);
+  for(int i=0;i<2*num_sites_;++i){
+    if(i%3==0 || i%3==1){
+      sigma[i]=0;
+    }
+    else{
+      sigma[i]=1;
+    }
+  }
+  get_rbm_parameters(pvec);
+  RealVector n2(1);
+  compute_theta_table(sigma);
+  std::cout << "kernel_"<< kernel_<<std::endl;
+  std::cout << "h_bias_="<< h_bias_<<std::endl;
+
+  std::cout << "theta"<< theta_<<std::endl;
+  std::cout << "the amplitude="<<get_rbm_amplitudes(sigma);
+
+  ComplexVector grad(num_params_);
+  get_derivatives(n2,grad,sigma,0);
+
+  std::cout<< grad.squaredNorm();
+
+  std::cout << "gradients=\n";
+  for(int i=0;i<num_params_;i++){
+    std::cout << i<<":"<<grad(i)<<"\n"<<std::endl;
+  }
+  getchar();
+  */
 }
 
 void Rbm::get_rbm_parameters(const RealVector& pvec)
+
 {
-  int n = start_pos+in_bias_.size();
-  int m = n+hl_bias_.size();
-  int l = m+kernel_.size(); //in_bias_.size()+
-  int p = l+1;
-  for (int i=0; i<in_bias_.size(); ++i)
-    *(in_bias_.data()+i) = pvec(start_pos+i);
-  for (int i=0; i<hl_bias_.size(); i++)
-    *(hl_bias_.data()+i) = pvec(n+i);
-  for (int i=0; i<kernel_.size(); ++i)
-    *(kernel_.data()+i) = pvec(m+i);
+  for(int k=0;k<num_hblocks_;k++){
+    int temp1= k*num_sites_;
+    for(int i=0;i< num_sites_;++i){
+      for(int j=0;j<num_sites_;++j){
+        int temp=i+j;
+        while(temp>=num_sites_){
+          temp=temp-num_sites_;
+        }
+        kernel_(i+temp1,j)=pvec[2*temp1+temp];
+        kernel_(i+temp1,j+num_sites_)=pvec[2*temp1+num_sites_+temp];
+      }
+    }
+  }
+  for(int i=0;i<num_hblocks_;++i){
+    for(int j=0;j<num_sites_;++j){
+      h_bias_[j+(i*num_sites_)]=pvec[num_kernel_params_+i];
+    }
+  }
 }
 
 
 void Rbm::get_vlayer(RealVector& sigma, const ivector& row) const
 {
-  for (int i=0; i<tot_sites_; i++){
+  for (int i=0; i<num_sites_; i++){
     if(row(i) == 1) sigma(i) = 1;
     else sigma(i) = 0;
-    if(row(i+tot_sites_) == 1) sigma(i+tot_sites_) = 1;
-    else sigma(i+tot_sites_) = 0;
+    if(row(i+num_sites_) == 1) sigma(i+num_sites_) = 1;
+    else sigma(i+num_sites_) = 0;
   }  
 }
 
 void Rbm::compute_theta_table(const ivector& row) const
 {
   RealVector sig;
-  sig.resize(num_vunits_);
+  sig.resize(2*num_sites_);
   get_vlayer(sig, row);
   theta_.setZero();
-  int k = 0;  
-  int counter = 0;
-  for(int i=0; i<alpha; i++){
-    for (int j=0; j<num_vunits_; j++){
-      double b = hl_bias_(counter);
-      double val = b+(sig.transpose()*kernel_.col(j+k));
-      theta_(j,i)  = val;
-      counter ++;
-    }
-    k += num_vunits_;
-  }
+//  theta_.size()=num_hunits_=num_hblock_*hblock_;
+  theta_= kernel_ *sig+ h_bias_;
 }
 
 std::complex<double> Rbm::get_rbm_amplitudes(const ivector& row) const
 {
   RealVector sig;
-  sig.resize(num_vunits_);
+  sig.resize(2*num_sites_);
   get_vlayer(sig, row);
-  double e=in_bias_.transpose()*sig;
   std::complex<double> F = {1.0,0.0};
-  for (int i=0; i<alpha; i++) 
-    for (int j=0; j<num_vunits_; j++)
-      F = F*cosh(theta_(j,i));
-  std::complex<double> sign = 1.0; 
-  return exp(e)*sign*F; //exp(e)*F;
+  for(int i=0;i<theta_.rows();++i){
+    F *= cosh(theta_[i]);
+  }
+  return F; 
 }
 void Rbm::update_theta_table(const int& spin, const int& tsite, const int& fsite) const
 { 
   int ts,fs;
 
   if(spin==0){
-    ts = tsite + tot_sites_;
-    fs = fsite + tot_sites_;
+    ts = tsite + num_sites_;
+    fs = fsite + num_sites_;
   }
   else{
     ts = tsite;
     fs = fsite;
   }
-  int k=0;
-  for(int i=0; i<alpha; i++){
-    for(int j=0; j<num_vunits_; j++){
-      int d_ = k+j;
-      double val = (kernel_(ts,d_) - kernel_(fs,d_));
-      theta_(j,i) += val;
-    }
-    k += num_vunits_;
+  for(int i=0;i<num_hunits_;++i){
+    theta_[i]+=kernel_(i,ts)-kernel_(i,fs);
   }
 }
 
 void Rbm::get_derivatives(const RealVector& pvec, ComplexVector& derivatives, const ivector& row, const int& start_pos) const
 {
   RealVector sigma;
-  sigma.resize(num_vunits_);
+  sigma.resize(2*num_sites_);
   //get_visible_layer(sigma, row);
   get_vlayer(sigma, row);
-  int n  = 0 +in_bias_.size();
-  int m  = n+hl_bias_.size();
-  int m1 = m+kernel_.size();
-  int l  = m1+1;
-  ComplexMatrix M3(in_bias_.size(), hl_bias_.size());
-  ComplexVector a(hl_bias_.size());
-  for (int i=0; i<in_bias_.size(); i++)
-    derivatives(start_pos+i) = sigma(i);
-  for (int i = 0; i < alpha; ++i){
-    for (int j = 0; j < hl_bias_.size(); ++j){
-      derivatives(n+j) = tanh(theta_(j,i));
-      a(j) = derivatives(n+j);
+  Vector tempvec;
+  derivatives.setZero();
+  //length of tanh_ = num_sites*num_hblocks_
+  for(int i=0;i<num_hunits_;++i){
+    tanh_[i]=tanh(theta_[i]);
+  }
+
+  for(int i=0;i<num_sites_;++i){
+    for(int j=0;j<num_sites_;++j){
+      int temp=i-j;
+      while(temp <0){
+        temp+= num_sites_;
+      }
+      a_matrix(i,j)=sigma[temp];
+      a_matrix1(i,j)=sigma[temp+num_sites_];
     }
   }
-  M3 = sigma*a.transpose();
-  for (int i=0; i<kernel_.size(); i++)
-    derivatives(m+i) = *(M3.data()+i);
-  /*double sin_val = -PI*std::tan(PI*theta_sign_);
-  derivatives(m1) = sin_val;
-  for (int i = 0; i < sign_weights_.size(); ++i)
-    derivatives(l+i) = sigma(i)*sin_val;*/
+
+  for(int i=0;i<num_hblocks_;++i){
+    tempvec=tanh_.segment(i*num_sites_,num_sites_);
+    der  =  a_matrix * tempvec;
+    der1 = a_matrix1 * tempvec;
+    for(int j=0;j<num_sites_;++j){
+      if(std::abs(der(j))>1.0E-12) derivatives(i*2*num_sites_+j)=der(j);
+      if(std::abs(der1(j))>1.0E-12) derivatives(i*2*num_sites_+num_sites_+j)=der1(j);
+    }
+  }
+
+  for(int i=0;i<num_hblocks_;++i){
+    derivatives(num_kernel_params_+i)= tanh_.segment(i*num_sites_,num_sites_).sum();
+  }
 }
 
 

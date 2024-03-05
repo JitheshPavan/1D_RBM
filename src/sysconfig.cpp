@@ -10,22 +10,26 @@
 #include <fstream>
 #include <ctime>
 
-void SysConfig::init(const lattice_id& lid, const lattice_size& size, const wf_id& wid, const neuralnet_id& nid)
+void SysConfig::init(const lattice_id& lid, const lattice_size& size, const neuralnet_id& nid)
 {
   lattice_.construct(lid,size);
   num_sites_ = lattice_.num_sites();
   basis_state_.init(num_sites_);
   hole_doping_ = param[0];
   U_ = param[4];
-  hidden_density_ = param[6];//this should be 1. 
-  start_pos = 0;
-  rb_.init_nn(nid, num_sites_,start_pos, hidden_density_);
+  hidden_density_ = param[6]; 
+  rb_.init_nn(num_sites_, hidden_density_);
   num_upspins_ = num_sites_/2;
   num_dnspins_ = num_sites_/2;
   num_exchange_moves_ = std::min(num_upspins_, num_dnspins_);
   basis_state_.init_spins(num_upspins_,num_dnspins_);
   num_total_vparams_ =rb_.num_vparams();
+
   std::cout << "Total Number of Parameters="<<num_total_vparams_<<std::endl;
+  std::cout <<  "Number of sites="<<num_sites_<<std::endl;
+  std::cout << "hidden_density_(alpha)="<<hidden_density_<<std::endl;
+  iteration_tracker=0;
+
   vparams_.resize(num_total_vparams_);
 
   // work arrays
@@ -38,6 +42,7 @@ void SysConfig::init(const lattice_id& lid, const lattice_size& size, const wf_i
 }
 
 int SysConfig::build(const RealVector& vparams)
+
 {
   rb_.get_rbm_parameters(vparams);
   return 0;
@@ -191,14 +196,14 @@ int SysConfig::inv_update_dnspin(const int& dnspin, const RowVector& psi_col,
 
 void SysConfig::print_stats(std::ostream& os) const
 {
+  iteration_tracker++;
   std::streamsize dp = std::cout.precision(); 
   double accept_ratio = 100.0*double(num_accepted_moves_)/(num_proposed_moves_);
   //os << "--------------------------------------\n";
   //os << " total mcsteps = " << num_updates_ <<"\n";
   os << std::fixed << std::showpoint << std::setprecision(1);
-  os << " acceptance ratio = " << accept_ratio << " %\n";
-  //os << "--------------------------------------\n";
-  // restore defaults
+  os << "               Iteration= "<<iteration_tracker<<"\nacceptance ratio = " << accept_ratio << "%";
+// restore defaults
   os << std::resetiosflags(std::ios_base::floatfield) << std::setprecision(dp);
 }
 

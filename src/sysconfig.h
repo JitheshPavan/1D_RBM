@@ -67,7 +67,7 @@ private:
   int refresh_cycle_;
   int num_proposed_moves_;
   int num_accepted_moves_;
-
+  mutable int iteration_tracker;
   int do_upspin_hop(void);
   int do_dnspin_hop(void);
   int do_spin_exchange(void);

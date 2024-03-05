@@ -1,5 +1,5 @@
 #PREFIX=/home/iisertvm/Downloads/Artificial_neural_networks/EXPERIMENT
-PREFIX=~/Desktop/Minor_Project/1D_RBM
+PREFIX=~/Desktop/Major_Project/1D_RBM
 # Libraries
 EIGEN_INCLUDE=-I/usr/local/include
 #EIGEN_USE_MKL=EIGEN_USE_MKL_ALL
@@ -9,7 +9,7 @@ EIGEN_INCLUDE=-I/usr/local/include
 INCLUDE = $(EIGEN_INCLUDE)
 
 # Compiler
-CXX=g++ -std=c++11 
+CXX=g++ -g -std=c++11 
 CPPFLAGS= #-D$(EIGEN_USE_MKL)
 OPTFLAGS=-Wall -O3
 CXXFLAGS=$(CPPFLAGS) $(OPTFLAGS) $(INCLUDE)

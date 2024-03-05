@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------
-/*---------------------------------------------------------------------------
+*---------------------------------------------------------------------------
 * @Author: Amal Medhi, amedhi@mbpro
 * @Date:   2019-03-20 13:07:50
 * @Last Modified by:   Amal Medhi, amedhi@mbpro
@@ -8,8 +8,10 @@
 // File: vmc.cpp
 
 #include "vmc.h"
+#include <random>
 #include "matrix.h"
 #include <fstream>
+#include <Eigen/SVD>
 
 int VMC::init(void) 
 {
@@ -19,12 +21,10 @@ int VMC::init(void)
   vparams.resize(num_vparams);
   num=2*num_vparams;
   n=num_vparams+num_vparams*(num_vparams+1)/2;
-  HI =  0.0416; // set HI and LO according to your problem.
-  LO = -0.0416;
-  range = HI-LO;
   epsilon = 0.0001;
-  step = 0.01;
+  step = 0.04;
   tol = config.param[5];
+  range=0.1;
   //std::cout << tol << std::endl; getchar();
  
   sr_matrix.resize(num_vparams,num_vparams);
@@ -70,7 +70,13 @@ int VMC::run_simulation(void)
     vparams(count) = x;
     count ++;
   }*/ 
-  vparams = (vparams + RealVector::Random(num_vparams,1.0))*range/2.;
+  std::normal_distribution<double> random_normal(0.0,range);
+  std::random_device rd{};
+  std::mt19937 gen{rd()};
+  for (int i=0; i<num_vparams; ++i) {
+    vparams[i] = random_normal(gen);
+  }
+
   std::ofstream file("energy vs iterations.txt");
   std::ofstream vfile("vparams.txt");
   for (int nu=0; nu<iterations; ++nu){
@@ -109,49 +115,49 @@ int VMC::run_simulation(void)
       config.update_state();
       skip_count++;
     }
+
     config.print_stats();
-    //std::cout << docc.mean() << std::endl;
     double E_mean=energy.mean();
-    //double sgn = sign_value_.mean();
-    //std::cout<<E_mean<<std::endl;
     file << nu << "   " << E_mean << std::endl;
-    std::cout << E_mean << std::endl;
+    std::cout << "\nEnergy="<<E_mean;
+    std::cout << "\nvparams=";
+    for(int i=0;i<5;i++){std::cout << vparams[i]<<",";} 
+
     RealVector u_triangular_mean(n);
     RealVector f_values_mean(num);
 
     u_triangular_mean=u_triangular.mean_data();
     f_values_mean=f_values.mean_data();
     config.SR_matrix(sr_matrix,u_triangular_mean);
-    for (unsigned i=0; i<num_vparams; ++i) sr_matrix(i,i) += 1.0E-4;
     config.finalize(E_mean,f_values_mean,grads);
-    /*Eigen::VectorXd search_dir = sr_matrix.fullPivLu().solve(grads);
-    vparams=vparams+step*search_dir;*/
-    es_.compute(sr_matrix);
-    U_ = es_.eigenvectors();
-    lambda = es_.eigenvalues();
-    //std::cout << U_ << std::endl; getchar();
-    lambda_max = lambda(num_vparams-1);
-    int count = num_vparams-2;
-    for (int i = 0; i <num_vparams-1; ++i){
-      double ratio = std::abs(lambda(count)/lambda_max);
-      if (ratio < tol) break;
-      count = count - 1;
-    }
 
-    for (int i = 0; i < num_vparams; ++i){
-      double S_sum = 0.0;
-      for (int j = 0; j < num_vparams; ++j){
-        double U_sum = 0.0;
-        for (int k = count+1; k < num_vparams; ++k){
-          U_sum += U_(i,k)*U_(j,k)/(lambda(k));
-        }
-        S_sum += U_sum*grads(j);
-      }
-      //search_dir(i) = S_sum;
-      //std::cout << S_sum << std::endl; getchar();
-      vparams(i) = vparams(i) + step*S_sum;
+    for (unsigned i=0; i<num_vparams; ++i){
+      sr_matrix(i,i) *= (1.0+0.001); //diag_scale=0.001
+      sr_matrix(i,i) += 0.001;//diag_shift=0.001
     }
-    //init();
+  //  std::cout<< vparams.segment(0,5).transpose()<<std::endl; getchar(); 
+
+/*
+    Eigen::VectorXd search_dir = sr_matrix.fullPivLu().solve(grads);
+    vparams=vparams+step*search_dir;*/
+
+    RealVector search_dir = BDCSVD_.compute(sr_matrix, Eigen::ComputeThinU | Eigen::ComputeThinV).solve(grads);
+    std::cout << "\ngrads=";
+    for(int i=0;i<5;i++){std::cout << grads[i]<<",";} 
+    std::cout << "\nsearch_dir=";
+    for(int i=0;i<5;i++){std::cout << search_dir[i]<<",";} 
+    std::cout << "\ngradnorm="<< std::sqrt(grads.squaredNorm())/num_vparams;
+    std::cout << "\n-------------------------------------"<<std::endl;
+
+  
+   // std::cout << "search_dir"<<search_dir.segment(0,5);
+
+    if(iterations>30){
+    double new_step = 0.01;}
+    vparams=vparams+ step*search_dir;
+    
+    //vparams=vparams+ step*search_dir;
+    //init();a
     if (nu==iterations-1){
       vfile << vparams << std::endl;
     }

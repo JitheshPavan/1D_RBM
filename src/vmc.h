@@ -44,7 +44,8 @@ private:
 	int n;
     int num;
     int iterations;
-
+    int iteration_tracker;
+    
 	// observables
 	mcdata::MC_Observable docc;
 	mcdata::MC_Observable energy;
@@ -53,6 +54,9 @@ private:
 	mcdata::MC_Observable f_values;
 	mcdata::MC_Observable sign_value_;
     Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> es_; 	
+
+    Eigen::BDCSVD<Eigen::MatrixXd> BDCSVD_;
+
 };
 
 
